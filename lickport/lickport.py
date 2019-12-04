@@ -37,7 +37,7 @@ class Lickport(Node):
         super().__init__('lickport')
         self.subscription = self.create_subscription(
             String,
-            'topic',
+            'chatter',
             self.listener_callback,
             10)
         self.subscription  # prevent unused variable warning
@@ -51,7 +51,7 @@ def main(args=None):
 
     lickport = Lickport()
 
-    rclpy.spin(minimal_subscriber)
+    rclpy.spin(lickport)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
