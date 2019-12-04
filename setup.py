@@ -20,20 +20,17 @@ setup(
     keywords=['ROS'],
     classifiers=[
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         'Topic :: Software Development',
     ],
-    description='Examples of minimal subscribers using rclpy.',
+    description='Lickport ROS interface.',
     license='Apache License, Version 2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'subscriber_old_school ='
-            ' lickport.subscriber_old_school:main',
-            'subscriber_lambda = lickport.subscriber_lambda:main',
-            'subscriber_member_function ='
-            ' lickport.subscriber_member_function:main',
+            'lickport ='
+            ' lickport.lickport:main',
         ],
     },
 )

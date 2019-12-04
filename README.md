@@ -1,6 +1,16 @@
-# Minimal "subscriber" cookbook recipes
+Lickport ROS Interface
+======================
 
-This package contains a few different strategies for creating short nodes that display received messages.
-The `subscriber_old_school` recipe creates a listener node very similar to how it would be done in ROS 1 using rospy.
-The `subscriber_lambda` recipe shows how to embed the callback functions inside your main.
-The `subscriber_member_function` recipe creates a class MinimalSubscriber that contains the callback, keeping the main simple.
+This is the ROS lickport interface.
+
+Published Topics
+----------------
+* `/motor_duty_cycleXX` (`std_msgs/Float64`) - Get the motor duty cycle.  One topic is created for each motor attached.
+
+Subscribed Topics
+-----------------
+* `/set_motor_duty_cycleXX` (`std_msgs/Float64`) - Set the motor duty cycle.  One topic is created for each motor attached.
+
+Parameters
+----------
+* `serial` (int) - The serial number of the phidgets motor to connect to.  If -1 (the default), connects to any motor phidget that can be found.
