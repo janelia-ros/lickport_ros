@@ -38,7 +38,7 @@ from Phidget22.Devices.DigitalInput import *
 from .PhidgetHelperFunctions import *
 
 
-def onAttachHandler(self):
+def on_attach_handler(self):
     ph = self
     try:
         channelClassName = ph.getChannelClassName()
@@ -68,7 +68,7 @@ def onAttachHandler(self):
         traceback.print_exc()
         return
 
-def onDetachHandler(self):
+def on_detach_handler(self):
     ph = self
     try:
         channelClassName = ph.getChannelClassName()
@@ -88,21 +88,9 @@ def onDetachHandler(self):
         traceback.print_exc()
         return
 
-def onErrorHandler(self, errorCode, errorString):
+def on_error_handler(self, error_code, error_string):
 
-    sys.stderr.write("[Phidget Error Event] -> " + errorString + " (" + str(errorCode) + ")\n")
-
-def onPositionChangeHandler(self, Position):
-    ph = self
-    hub_port = ph.getHubPort()
-    joint = ''
-    if (hub_port) == X_JOINT_STEPPER_HUB_PORT:
-        joint = 'x'
-    elif (hub_port) == Y_JOINT_STEPPER_HUB_PORT:
-        joint = 'y'
-    elif (hub_port) == Z_JOINT_STEPPER_HUB_PORT:
-        joint = 'z'
-    print(joint + " joint -> Position: " + str(Position))
+    sys.stderr.write("[Phidget Error Event] -> " + error_string + " (" + str(error_code) + ")\n")
 
 class Joint:
     ACCELERATION = 10000
@@ -134,13 +122,9 @@ class Joint:
         channel.setIsHubPortDevice(info.isHubPortDevice)
         channel.setChannel(info.channel)
 
-        channel.setOnAttachHandler(onAttachHandler)
-        channel.setOnDetachHandler(onDetachHandler)
-        channel.setOnErrorHandler(onErrorHandler)
-        try:
-            channel.setOnPositionChangeHandler(onPositionChangeHandler)
-        except AttributeError:
-            pass
+        channel.setOnAttachHandler(on_attach_handler)
+        channel.setOnDetachHandler(on_detach_handler)
+        channel.setOnErrorHandler(on_error_handler)
 
     def openWaitForAttachment(self):
         self._stepper.openWaitForAttachment(self.ATTACHMENT_TIMEOUT)
