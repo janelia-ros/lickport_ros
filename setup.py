@@ -25,7 +25,7 @@ setup(
         'Topic :: Software Development',
     ],
     description='Lickport ROS interface.',
-    license='Apache License, Version 2.0',
+    license='BSD',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
