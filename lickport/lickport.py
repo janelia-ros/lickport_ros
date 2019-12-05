@@ -35,7 +35,7 @@ from Phidget22.PhidgetException import *
 from Phidget22.Devices.Stepper import *
 from Phidget22.Devices.DigitalInput import *
 
-from PhidgetHelperFunctions import *
+from .PhidgetHelperFunctions import *
 
 
 def onAttachHandler(self):
@@ -105,6 +105,13 @@ def onPositionChangeHandler(self, Position):
     print(joint + " joint -> Position: " + str(Position))
 
 class Joint:
+    ACCELERATION = 10000
+    VELOCITY_LIMIT = 10000
+    HOME_VELOCITY_LIMIT = 1000
+    HOME_TARGET_POSITION = -10000
+    CURRENT_LIMIT = 0.140
+    HOLDING_CURRENT_LIMIT = 0
+    ATTACHMENT_TIMEOUT = 5000
 
     def __init__(self, stepper_channel_info, home_switch_channel_info, joint_name):
         self._joint_name = joint_name
@@ -136,19 +143,19 @@ class Joint:
             pass
 
     def openWaitForAttachment(self):
-        self._stepper.openWaitForAttachment(ATTACHMENT_TIMEOUT)
-        self._home_switch.openWaitForAttachment(ATTACHMENT_TIMEOUT)
+        self._stepper.openWaitForAttachment(self.ATTACHMENT_TIMEOUT)
+        self._home_switch.openWaitForAttachment(self.ATTACHMENT_TIMEOUT)
 
     def setup(self):
-        self._stepper.setAcceleration(ACCELERATION)
-        self._stepper.setCurrentLimit(CURRENT_LIMIT)
-        self._stepper.setVelocityLimit(VELOCITY_LIMIT)
-        self._stepper.setHoldingCurrentLimit(HOLDING_CURRENT_LIMIT)
+        self._stepper.setAcceleration(self.ACCELERATION)
+        self._stepper.setCurrentLimit(self.CURRENT_LIMIT)
+        self._stepper.setVelocityLimit(self.VELOCITY_LIMIT)
+        self._stepper.setHoldingCurrentLimit(self.HOLDING_CURRENT_LIMIT)
 
     def home(self):
         if self._home_switch.getState():
-            self._stepper.setVelocityLimit(HOME_VELOCITY_LIMIT)
-            self._stepper.setTargetPosition(HOME_TARGET_POSITION)
+            self._stepper.setVelocityLimit(self.HOME_VELOCITY_LIMIT)
+            self._stepper.setTargetPosition(self.HOME_TARGET_POSITION)
             while self._home_switch.getState():
                 pass
             print("set velocity to 0")
@@ -156,7 +163,7 @@ class Joint:
             self._stepper.addPositionOffset(-self._stepper.getPosition())
             print("position = " + str(self._stepper.getPosition()))
             self._stepper.setTargetPosition(0)
-            self._stepper.setVelocityLimit(VELOCITY_LIMIT)
+            self._stepper.setVelocityLimit(self.VELOCITY_LIMIT)
         else:
             print('joint already homed!')
 
@@ -175,13 +182,6 @@ class Lickport(Node):
     X_JOINT_HOME_SWITCH_HUB_PORT = 5
     Y_JOINT_HOME_SWITCH_HUB_PORT = 4
     Z_JOINT_HOME_SWITCH_HUB_PORT = 3
-    ACCELERATION = 10000
-    VELOCITY_LIMIT = 10000
-    HOME_VELOCITY_LIMIT = 1000
-    HOME_TARGET_POSITION = -10000
-    CURRENT_LIMIT = 0.140
-    HOLDING_CURRENT_LIMIT = 0
-    ATTACHMENT_TIMEOUT = 5000
     TARGET_POSITION = 2000
 
     def __init__(self):
@@ -210,18 +210,18 @@ class Lickport(Node):
             home_switch_channel_info.isVINT = True
             home_switch_channel_info.netInfo.isRemote = False
 
-            stepper_channel_info.hubPort = X_JOINT_STEPPER_HUB_PORT
-            home_switch_channel_info.hubPort = X_JOINT_HOME_SWITCH_HUB_PORT
+            stepper_channel_info.hubPort = self.X_JOINT_STEPPER_HUB_PORT
+            home_switch_channel_info.hubPort = self.X_JOINT_HOME_SWITCH_HUB_PORT
             joint_name = 'x'
             self._x_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
 
-            stepper_channel_info.hubPort = Y_JOINT_STEPPER_HUB_PORT
-            home_switch_channel_info.hubPort = Y_JOINT_HOME_SWITCH_HUB_PORT
+            stepper_channel_info.hubPort = self.Y_JOINT_STEPPER_HUB_PORT
+            home_switch_channel_info.hubPort = self.Y_JOINT_HOME_SWITCH_HUB_PORT
             joint_name = 'y'
             self._y_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
 
-            stepper_channel_info.hubPort = Z_JOINT_STEPPER_HUB_PORT
-            home_switch_channel_info.hubPort = Z_JOINT_HOME_SWITCH_HUB_PORT
+            stepper_channel_info.hubPort = self.Z_JOINT_STEPPER_HUB_PORT
+            home_switch_channel_info.hubPort = self.Z_JOINT_HOME_SWITCH_HUB_PORT
             joint_name = 'z'
             self._z_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
 
@@ -266,9 +266,9 @@ class Lickport(Node):
 
         home_all()
 
-        self._x_joint.set_target_position(TARGET_POSITION)
-        self._y_joint.set_target_position(TARGET_POSITION)
-        self._z_joint.set_target_position(TARGET_POSITION)
+        self._x_joint.set_target_position(self.TARGET_POSITION)
+        self._y_joint.set_target_position(self.TARGET_POSITION)
+        self._z_joint.set_target_position(self.TARGET_POSITION)
 
     def listener_callback(self, msg):
         self.get_logger().info('Lickport heard: "%s"' % msg.data)
