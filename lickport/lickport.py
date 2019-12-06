@@ -28,7 +28,9 @@
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import String
+from std_msgs.msg import Header
+from sensor_msgs.msg import JointState
+# from control_msgs.msg import JointJog
 
 from Phidget22.Phidget import *
 from Phidget22.PhidgetException import *
@@ -37,60 +39,8 @@ from Phidget22.Devices.DigitalInput import *
 
 from .PhidgetHelperFunctions import *
 
-
-def on_attach_handler(self):
-    ph = self
-    try:
-        channelClassName = ph.getChannelClassName()
-        serialNumber = ph.getDeviceSerialNumber()
-        channel = ph.getChannel()
-        if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
-            hubPort = ph.getHubPort()
-            print("\n\t-> Channel Class: " + channelClassName + "\n\t-> Serial Number: " + str(serialNumber) +
-                "\n\t-> Hub Port: " + str(hubPort) + "\n\t-> Channel:  " + str(channel) + "\n")
-        else:
-            print("\n\t-> Channel Class: " + channelClassName + "\n\t-> Serial Number: " + str(serialNumber) +
-                    "\n\t-> Channel:  " + str(channel) + "\n")
-
-        try:
-            ph.setDataInterval(100)
-            ph.setEngaged(True)
-        except AttributeError:
-            pass
-        except PhidgetException as e:
-            sys.stderr.write("Runtime Error\n\t")
-            DisplayError(e)
-            return
-
-    except PhidgetException as e:
-        print("\nError in Attach Event:")
-        DisplayError(e)
-        traceback.print_exc()
-        return
-
-def on_detach_handler(self):
-    ph = self
-    try:
-        channelClassName = ph.getChannelClassName()
-        serialNumber = ph.getDeviceSerialNumber()
-        channel = ph.getChannel()
-        if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
-            hubPort = ph.getHubPort()
-            print("\n\t-> Channel Class: " + channelClassName + "\n\t-> Serial Number: " + str(serialNumber) +
-                "\n\t-> Hub Port: " + str(hubPort) + "\n\t-> Channel:  " + str(channel) + "\n")
-        else:
-            print("\n\t-> Channel Class: " + channelClassName + "\n\t-> Serial Number: " + str(serialNumber) +
-                    "\n\t-> Channel:  " + str(channel) + "\n")
-
-    except PhidgetException as e:
-        print("\nError in Detach Event:")
-        DisplayError(e)
-        traceback.print_exc()
-        return
-
-def on_error_handler(self, error_code, error_string):
-
-    sys.stderr.write("[Phidget Error Event] -> " + error_string + " (" + str(error_code) + ")\n")
+from time import time
+import math
 
 class Joint:
     ACCELERATION = 10000
@@ -101,20 +51,71 @@ class Joint:
     HOLDING_CURRENT_LIMIT = 0
     ATTACHMENT_TIMEOUT = 5000
 
-    def __init__(self, stepper_channel_info, home_switch_channel_info, joint_name):
-        self._joint_name = joint_name
+    def __init__(self, stepper_channel_info, home_switch_channel_info):
         try:
             self._stepper = Stepper()
             self._home_switch = DigitalInput()
         except PhidgetException as e:
-            sys.stderr.write("Runtime Error -> Creating Stepper: \n\t")
             DisplayError(e)
             raise
-        except RuntimeError as e:
-            sys.stderr.write("Runtime Error -> Creating Stepper: \n\t" + e)
-            raise
+        self._logger = None
         self._setup_channel(self._stepper, stepper_channel_info)
         self._setup_channel(self._home_switch, home_switch_channel_info)
+
+    def set_logger(self, logger):
+        self._logger = logger
+
+    def set_publish_joint_state(self, publish_joint_state):
+        self._publish_joint_state = publish_joint_state
+        self._stepper.setOnPositionChangeHandler(publish_joint_state)
+        self._stepper.setOnVelocityChangeHandler(publish_joint_state)
+
+    def _on_attach_handler(self, ph):
+        try:
+            channelClassName = ph.getChannelClassName()
+            serialNumber = ph.getDeviceSerialNumber()
+            channel = ph.getChannel()
+            if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
+                hubPort = ph.getHubPort()
+                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
+                                  '\n\t-> Hub Port: ' + str(hubPort) + '\n\t-> Channel:  ' + str(channel) + '\n')
+            else:
+                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
+                                  '\n\t-> Channel:  ' + str(channel) + '\n')
+
+            try:
+                ph.setDataInterval(100)
+            except AttributeError:
+                pass
+            except PhidgetException as e:
+                DisplayError(e)
+                return
+
+        except PhidgetException as e:
+            DisplayError(e)
+            traceback.print_exc()
+            return
+
+    def _on_detach_handler(self, ph):
+        try:
+            channelClassName = ph.getChannelClassName()
+            serialNumber = ph.getDeviceSerialNumber()
+            channel = ph.getChannel()
+            if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
+                hubPort = ph.getHubPort()
+                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
+                                  '\n\t-> Hub Port: ' + str(hubPort) + '\n\t-> Channel:  ' + str(channel) + '\n')
+            else:
+                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
+                                  '\n\t-> Channel:  ' + str(channel) + '\n')
+
+        except PhidgetException as e:
+            DisplayError(e)
+            traceback.print_exc()
+            return
+
+    def _on_error_handler(self, ph, error_code, error_string):
+        self._logger.error('[Phidget Error Event] -> ' + error_string + ' (' + str(error_code) + ')\n')
 
     def _setup_channel(self,channel,info):
         channel.setDeviceSerialNumber(info.deviceSerialNumber)
@@ -122,19 +123,22 @@ class Joint:
         channel.setIsHubPortDevice(info.isHubPortDevice)
         channel.setChannel(info.channel)
 
-        channel.setOnAttachHandler(on_attach_handler)
-        channel.setOnDetachHandler(on_detach_handler)
-        channel.setOnErrorHandler(on_error_handler)
+        channel.setOnAttachHandler(self._on_attach_handler)
+        channel.setOnDetachHandler(self._on_detach_handler)
+        channel.setOnErrorHandler(self._on_error_handler)
 
-    def openWaitForAttachment(self):
+    def open_wait_for_attachment(self):
         self._stepper.openWaitForAttachment(self.ATTACHMENT_TIMEOUT)
         self._home_switch.openWaitForAttachment(self.ATTACHMENT_TIMEOUT)
+        self._setup()
 
-    def setup(self):
+    def _setup(self):
         self._stepper.setAcceleration(self.ACCELERATION)
         self._stepper.setCurrentLimit(self.CURRENT_LIMIT)
         self._stepper.setVelocityLimit(self.VELOCITY_LIMIT)
         self._stepper.setHoldingCurrentLimit(self.HOLDING_CURRENT_LIMIT)
+        self.enable()
+
 
     def home(self):
         if self._home_switch.getState():
@@ -142,19 +146,30 @@ class Joint:
             self._stepper.setTargetPosition(self.HOME_TARGET_POSITION)
             while self._home_switch.getState():
                 pass
-            print("set velocity to 0")
             self._stepper.setVelocityLimit(0.0)
             self._stepper.addPositionOffset(-self._stepper.getPosition())
-            print("position = " + str(self._stepper.getPosition()))
-            self._stepper.setTargetPosition(0)
+            self._stepper.setTargetPosition(0.0)
+            self._publish_joint_state(None,None)
             self._stepper.setVelocityLimit(self.VELOCITY_LIMIT)
         else:
-            print('joint already homed!')
+            self._logger.info('joint already homed!')
 
     def close(self):
         self._stepper.setOnPositionChangeHandler(None)
         self._stepper.close()
         self._home_switch.close()
+
+    def get_position(self):
+        return self._stepper.getPosition()
+
+    def get_velocity(self):
+        return self._stepper.getVelocity()
+
+    def enable(self):
+        self._stepper.setEngaged(True)
+
+    def disable(self):
+        self._stepper.setEngaged(False)
 
     def set_target_position(self, target_position):
         self._stepper.setTargetPosition(target_position)
@@ -170,12 +185,14 @@ class Lickport(Node):
 
     def __init__(self):
         super().__init__('lickport')
-        self.subscription = self.create_subscription(
-            String,
-            'chatter',
-            self.listener_callback,
-            10)
-        self.subscription  # prevent unused variable warning
+        self._joint_state_publisher = self.create_publisher(JointState, 'lickport_joint_state', 10)
+        # self.subscription = self.create_subscription(
+        #     JointJog,
+        #     'lickport_joint_jog',
+        #     self.joing_jog_callback,
+        #     10)
+        # self.subscription  # prevent unused variable warning
+        self._joints = {}
         self._setup_joints()
 
     def _setup_joints(self):
@@ -196,66 +213,69 @@ class Lickport(Node):
 
             stepper_channel_info.hubPort = self.X_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.X_JOINT_HOME_SWITCH_HUB_PORT
-            joint_name = 'x'
-            self._x_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
+            self._joints['x'] = Joint(stepper_channel_info, home_switch_channel_info)
+            self._joints['x'].set_logger(self.get_logger())
+            self._joints['x'].set_publish_joint_state(self._publish_joint_state)
 
             stepper_channel_info.hubPort = self.Y_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.Y_JOINT_HOME_SWITCH_HUB_PORT
-            joint_name = 'y'
-            self._y_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
+            self._joints['y'] = Joint(stepper_channel_info, home_switch_channel_info)
+            self._joints['y'].set_logger(self.get_logger())
+            self._joints['y'].set_publish_joint_state(self._publish_joint_state)
 
             stepper_channel_info.hubPort = self.Z_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.Z_JOINT_HOME_SWITCH_HUB_PORT
-            joint_name = 'z'
-            self._z_joint = Joint(stepper_channel_info, home_switch_channel_info, joint_name)
+            self._joints['z'] = Joint(stepper_channel_info, home_switch_channel_info)
+            self._joints['z'].set_logger(self.get_logger())
+            self._joints['z'].set_publish_joint_state(self._publish_joint_state)
 
             try:
-                self._x_joint.openWaitForAttachment()
-                self._y_joint.openWaitForAttachment()
-                self._z_joint.openWaitForAttachment()
+                self._joints['x'].open_wait_for_attachment()
+                self._joints['y'].open_wait_for_attachment()
+                self._joints['z'].open_wait_for_attachment()
             except PhidgetException as e:
-                PrintOpenErrorMessage(e)
-                raise EndProgramSignal("Program Terminated: Open Failed")
-
-            self._x_joint.setup()
-            self._y_joint.setup()
-            self._z_joint.setup()
+                raise EndProgramSignal('Program Terminated: Open Failed')
 
         except PhidgetException as e:
-            sys.stderr.write("\nExiting with error(s)...")
             DisplayError(e)
             traceback.print_exc()
-            print("Cleaning up...")
-            self._x_joint.close()
-            self._y_joint.close()
-            self._z_joint.close()
+            for name, joint in self._joints.items():
+                joint.close()
             return 1
         except EndProgramSignal as e:
-            print(e)
-            print("Cleaning up...")
-            self._x_joint.close()
-            self._y_joint.close()
-            self._z_joint.close()
+            self.get_logger().info(e)
+            for name, joint in self._joints.items():
+                joint.close()
             return 1
 
         def home_all():
-            print('Homing y')
-            self._y_joint.home()
-
-            print('Homing x')
-            self._x_joint.home()
-
-            print('Homing z')
-            self._z_joint.home()
+            for name, joint in self._joints.items():
+                joint.home()
 
         home_all()
 
-        self._x_joint.set_target_position(self.TARGET_POSITION)
-        self._y_joint.set_target_position(self.TARGET_POSITION)
-        self._z_joint.set_target_position(self.TARGET_POSITION)
+        for name, joint in self._joints.items():
+            joint.set_target_position(self.TARGET_POSITION)
 
-    def listener_callback(self, msg):
-        self.get_logger().info('Lickport heard: "%s"' % msg.data)
+    def disable_all_joints(self):
+        for name, joint in self._joints.items():
+            joint.disable()
+
+
+    def _publish_joint_state(self, ch, position):
+        joint_state = JointState()
+        joint_state.header = Header()
+        now_frac, now_whole = math.modf(time())
+        joint_state.header.stamp.sec = int(now_whole)
+        joint_state.header.stamp.nanosec = int(now_frac * 1e9)
+        for name, joint in self._joints.items():
+            joint_state.name.append(name)
+            joint_state.position.append(joint.get_position())
+            joint_state.velocity.append(joint.get_velocity())
+        self._joint_state_publisher.publish(joint_state)
+
+    # def joint_jog_callback(self, msg):
+    #     self.get_logger().info('lickport_joint_jog callback: {0}'.format(msg.joint_names))
 
 
 def main(args=None):
@@ -265,9 +285,7 @@ def main(args=None):
 
     rclpy.spin(lickport)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
+    lickport.disable_all_joints()
     lickport.destroy_node()
     rclpy.shutdown()
 
