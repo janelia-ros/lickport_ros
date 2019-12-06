@@ -30,7 +30,6 @@ from rclpy.node import Node
 
 from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
-# from control_msgs.msg import JointJog
 
 from Phidget22.Phidget import *
 from Phidget22.PhidgetException import *
@@ -51,7 +50,8 @@ class Joint:
     HOLDING_CURRENT_LIMIT = 0
     ATTACHMENT_TIMEOUT = 5000
 
-    def __init__(self, stepper_channel_info, home_switch_channel_info):
+    def __init__(self, stepper_channel_info, home_switch_channel_info, name):
+        self.name = name
         try:
             self._stepper = Stepper()
             self._home_switch = DigitalInput()
@@ -72,16 +72,16 @@ class Joint:
 
     def _on_attach_handler(self, ph):
         try:
-            channelClassName = ph.getChannelClassName()
-            serialNumber = ph.getDeviceSerialNumber()
+            channel_class_name = ph.getChannelClassName()
+            serial_number = ph.getDeviceSerialNumber()
             channel = ph.getChannel()
-            if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
-                hubPort = ph.getHubPort()
-                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
-                                  '\n\t-> Hub Port: ' + str(hubPort) + '\n\t-> Channel:  ' + str(channel) + '\n')
+            hub_port = ph.getHubPort()
+            if ph.getIsHubPortDevice():
+                msg = 'home switch {0} attached on hub port {1} on serial number {2}'.format(self.name, hub_port, serial_number)
+                self._logger.info(msg)
             else:
-                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
-                                  '\n\t-> Channel:  ' + str(channel) + '\n')
+                msg = 'stepper {0} attached on hub port {1} on serial number {2}'.format(self.name, hub_port, serial_number)
+                self._logger.info(msg)
 
             try:
                 ph.setDataInterval(100)
@@ -98,16 +98,15 @@ class Joint:
 
     def _on_detach_handler(self, ph):
         try:
-            channelClassName = ph.getChannelClassName()
-            serialNumber = ph.getDeviceSerialNumber()
+            channel_class_name = ph.getChannelClassName()
+            serial_number = ph.getDeviceSerialNumber()
             channel = ph.getChannel()
-            if(ph.getDeviceClass() == DeviceClass.PHIDCLASS_VINT):
-                hubPort = ph.getHubPort()
-                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
-                                  '\n\t-> Hub Port: ' + str(hubPort) + '\n\t-> Channel:  ' + str(channel) + '\n')
+            if ph.getIsHubPortDevice():
+                msg = 'home switch {0} detached on hub port {1} on serial number {2}'.format(self.name, hub_port, serial_number)
+                self._logger.info(msg)
             else:
-                self._logger.info('\n\t-> Channel Class: ' + channelClassName + '\n\t-> Serial Number: ' + str(serialNumber) +
-                                  '\n\t-> Channel:  ' + str(channel) + '\n')
+                msg = 'stepper {0} detached on hub port {1} on serial number {2}'.format(self.name, hub_port, serial_number)
+                self._logger.info(msg)
 
         except PhidgetException as e:
             DisplayError(e)
@@ -139,7 +138,6 @@ class Joint:
         self._stepper.setHoldingCurrentLimit(self.HOLDING_CURRENT_LIMIT)
         self.enable()
 
-
     def home(self):
         if self._home_switch.getState():
             self._stepper.setVelocityLimit(self.HOME_VELOCITY_LIMIT)
@@ -151,8 +149,7 @@ class Joint:
             self._stepper.setTargetPosition(0.0)
             self._publish_joint_state(None,None)
             self._stepper.setVelocityLimit(self.VELOCITY_LIMIT)
-        else:
-            self._logger.info('joint already homed!')
+        self._logger.info('{0} homed'.format(self.name))
 
     def close(self):
         self._stepper.setOnPositionChangeHandler(None)
@@ -174,6 +171,9 @@ class Joint:
     def set_target_position(self, target_position):
         self._stepper.setTargetPosition(target_position)
 
+    def set_velocity_limit(self, velocity_limit):
+        self._stepper.setVelocityLimit(velocity_limit)
+
 class Lickport(Node):
     X_JOINT_STEPPER_HUB_PORT = 0
     Y_JOINT_STEPPER_HUB_PORT = 1
@@ -181,17 +181,16 @@ class Lickport(Node):
     X_JOINT_HOME_SWITCH_HUB_PORT = 5
     Y_JOINT_HOME_SWITCH_HUB_PORT = 4
     Z_JOINT_HOME_SWITCH_HUB_PORT = 3
-    TARGET_POSITION = 2000
 
     def __init__(self):
         super().__init__('lickport')
         self._joint_state_publisher = self.create_publisher(JointState, 'lickport_joint_state', 10)
-        # self.subscription = self.create_subscription(
-        #     JointJog,
-        #     'lickport_joint_jog',
-        #     self.joing_jog_callback,
-        #     10)
-        # self.subscription  # prevent unused variable warning
+        self._joint_target_subscription = self.create_subscription(
+            JointState,
+            'lickport_joint_target',
+            self.joint_target_callback,
+            10)
+        self._joint_target_subscription  # prevent unused variable warning
         self._joints = {}
         self._setup_joints()
 
@@ -213,21 +212,24 @@ class Lickport(Node):
 
             stepper_channel_info.hubPort = self.X_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.X_JOINT_HOME_SWITCH_HUB_PORT
-            self._joints['x'] = Joint(stepper_channel_info, home_switch_channel_info)
-            self._joints['x'].set_logger(self.get_logger())
-            self._joints['x'].set_publish_joint_state(self._publish_joint_state)
+            name = 'x'
+            self._joints[name] = Joint(stepper_channel_info, home_switch_channel_info, name)
+            self._joints[name].set_logger(self.get_logger())
+            self._joints[name].set_publish_joint_state(self._publish_joint_state)
 
             stepper_channel_info.hubPort = self.Y_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.Y_JOINT_HOME_SWITCH_HUB_PORT
-            self._joints['y'] = Joint(stepper_channel_info, home_switch_channel_info)
-            self._joints['y'].set_logger(self.get_logger())
-            self._joints['y'].set_publish_joint_state(self._publish_joint_state)
+            name = 'y'
+            self._joints[name] = Joint(stepper_channel_info, home_switch_channel_info, name)
+            self._joints[name].set_logger(self.get_logger())
+            self._joints[name].set_publish_joint_state(self._publish_joint_state)
 
             stepper_channel_info.hubPort = self.Z_JOINT_STEPPER_HUB_PORT
             home_switch_channel_info.hubPort = self.Z_JOINT_HOME_SWITCH_HUB_PORT
-            self._joints['z'] = Joint(stepper_channel_info, home_switch_channel_info)
-            self._joints['z'].set_logger(self.get_logger())
-            self._joints['z'].set_publish_joint_state(self._publish_joint_state)
+            name = 'z'
+            self._joints[name] = Joint(stepper_channel_info, home_switch_channel_info, name)
+            self._joints[name].set_logger(self.get_logger())
+            self._joints[name].set_publish_joint_state(self._publish_joint_state)
 
             try:
                 self._joints['x'].open_wait_for_attachment()
@@ -254,9 +256,6 @@ class Lickport(Node):
 
         home_all()
 
-        for name, joint in self._joints.items():
-            joint.set_target_position(self.TARGET_POSITION)
-
     def disable_all_joints(self):
         for name, joint in self._joints.items():
             joint.disable()
@@ -274,9 +273,22 @@ class Lickport(Node):
             joint_state.velocity.append(joint.get_velocity())
         self._joint_state_publisher.publish(joint_state)
 
-    # def joint_jog_callback(self, msg):
-    #     self.get_logger().info('lickport_joint_jog callback: {0}'.format(msg.joint_names))
-
+    def joint_target_callback(self, msg):
+        if len(msg.name) == len(msg.velocity) == len(msg.position):
+            targets = zip(msg.name, msg.velocity, msg.position)
+            for name, velocity, position in targets:
+                try:
+                    self._joints[name].set_velocity_limit(velocity)
+                    self._joints[name].set_target_position(position)
+                except KeyError:
+                    pass
+        elif len(msg.name) == len(msg.position):
+            targets = zip(msg.name, msg.position)
+            for name, position in targets:
+                try:
+                    self._joints[name].set_target_position(position)
+                except KeyError:
+                    pass
 
 def main(args=None):
     rclpy.init(args=args)

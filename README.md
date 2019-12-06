@@ -9,7 +9,7 @@ Published Topics
 
 Subscribed Topics
 -----------------
-* `/set_motor_duty_cycleXX` (`std_msgs/Float64`) - Set the motor duty cycle.  One topic is created for each motor attached.
+* `/lickport_joint_target` (`sensor_msgs/JointState`) - Set joint state targets.
 
 Parameters
 ----------
@@ -20,6 +20,6 @@ Command Line Examples
 
 ```bash
 ros2 run lickport lickport
-ros2 topic echo /joint_states
-ros2 service call /set_current_limit00 phidgets_msgs/SetCurrentLimit "current_limit: 1.0"
+ros2 topic echo /lickport_joint_state
+ros2 topic pub -1 /lickport_joint_target sensor_msgs/JointState "{name: [x,y,z], position: [1000,1000,1000]}"
 ```
