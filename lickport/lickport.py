@@ -156,6 +156,12 @@ class Joint:
         self._stepper.close()
         self._home_switch.close()
 
+    def get_rescale_factor(self):
+        return self._stepper.getRescaleFactor()
+
+    def set_rescale_factor(self, rescale_factor):
+        return self._stepper.setRescaleFactor(rescale_factor)
+
     def get_position(self):
         return self._stepper.getPosition()
 
@@ -232,9 +238,8 @@ class Lickport(Node):
             self._joints[name].set_publish_joint_state(self._publish_joint_state)
 
             try:
-                self._joints['x'].open_wait_for_attachment()
-                self._joints['y'].open_wait_for_attachment()
-                self._joints['z'].open_wait_for_attachment()
+                for name, joint in self._joints.items():
+                    joint.open_wait_for_attachment()
             except PhidgetException as e:
                 raise EndProgramSignal('Program Terminated: Open Failed')
 
