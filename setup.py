@@ -29,8 +29,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lickport ='
-            ' lickport.lickport:main',
+            'lickport_node ='
+            ' lickport.lickport_node:main',
         ],
     },
 )
