@@ -36,7 +36,8 @@ from Phidget22.PhidgetException import *
 from Phidget22.Devices.Stepper import *
 from Phidget22.Devices.DigitalInput import *
 
-from .PhidgetHelperFunctions import *
+from phidgets_python_interface.PhidgetHelperFunctions import *
+from phidgets_python_interface.joint import Joint
 
 from time import time
 import math
