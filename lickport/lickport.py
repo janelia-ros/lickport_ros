@@ -35,21 +35,24 @@ class LickportInfo():
 
         self.stepper_joints_info['x'].stepper_info.phidget_info.hub_port = 0
         self.stepper_joints_info['x'].stepper_info.phidget_info.label = 'lickport_0'
+        self.stepper_joints_info['x'].stepper_info.current_limit = 0.140
         self.stepper_joints_info['x'].home_switch_info.phidget_info.hub_port = 5
         self.stepper_joints_info['x'].home_switch_info.phidget_info.label = 'lickport_0'
-        self.stepper_joints_info['x'].stepper_info.current_limit = 0.140
+        self.stepper_joints_info['x'].home_switch_info.active_low = False
 
         self.stepper_joints_info['y'].stepper_info.phidget_info.hub_port = 1
         self.stepper_joints_info['y'].stepper_info.phidget_info.label = 'lickport_0'
+        self.stepper_joints_info['y'].stepper_info.current_limit = 0.140
         self.stepper_joints_info['y'].home_switch_info.phidget_info.hub_port = 4
         self.stepper_joints_info['y'].home_switch_info.phidget_info.label = 'lickport_0'
-        self.stepper_joints_info['y'].stepper_info.current_limit = 0.140
+        self.stepper_joints_info['y'].home_switch_info.active_low = False
 
         self.stepper_joints_info['z'].stepper_info.phidget_info.hub_port = 2
         self.stepper_joints_info['z'].stepper_info.phidget_info.label = 'lickport_0'
+        self.stepper_joints_info['z'].stepper_info.current_limit = 0.140
         self.stepper_joints_info['z'].home_switch_info.phidget_info.hub_port = 3
         self.stepper_joints_info['z'].home_switch_info.phidget_info.label = 'lickport_0'
-        self.stepper_joints_info['z'].stepper_info.current_limit = 0.140
+        self.stepper_joints_info['z'].home_switch_info.active_low = False
 
 class Lickport():
     def __init__(self, lickport_info, name, logger):
