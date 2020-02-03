@@ -31,120 +31,86 @@ from rclpy.node import Node
 from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
 
-from phidgets_python_interface.joint import Joint
+from .lickport import Lickport, LickportInfo
 
 from time import time
 import math
 
-class Lickport(Node):
-    _JOINT_PARAMETERS ={
-        'x': {
-            'stepper_hub_port': 0,
-            'switch_hub_port': 5,
-            'attachment_timeout': 5000,
-            'data_interval': 100,
-            'acceleration': 10000,
-            'velocity_limit': 10000,
-            'home_velocity_limit': 1000,
-            'home_target_position': -10000,
-            'current_limit': 0.140,
-            'holding_current_limit': 0.0,
-            'rescale_factor': 1.0,
-            'invert_direction': False,
-        },
-        'y': {
-            'stepper_hub_port': 1,
-            'switch_hub_port': 4,
-            'attachment_timeout': 5000,
-            'data_interval': 100,
-            'acceleration': 10000,
-            'velocity_limit': 10000,
-            'home_velocity_limit': 1000,
-            'home_target_position': -10000,
-            'current_limit': 0.140,
-            'holding_current_limit': 0.0,
-            'rescale_factor': 1.0,
-            'invert_direction': False,
-        },
-        'z': {
-            'stepper_hub_port': 2,
-            'switch_hub_port': 3,
-            'attachment_timeout': 5000,
-            'data_interval': 100,
-            'acceleration': 10000,
-            'velocity_limit': 10000,
-            'home_velocity_limit': 1000,
-            'home_target_position': -10000,
-            'current_limit': 0.140,
-            'holding_current_limit': 0.0,
-            'rescale_factor': 1.0,
-            'invert_direction': False,
-        },
-    }
-
+class LickportNode(Node):
     def __init__(self):
         super().__init__('lickport')
+
+        self.lickport_info = LickportInfo()
+        self.name = 'lickport'
+        self.logger = self.get_logger()
+
         self._joint_state_publisher = self.create_publisher(JointState, 'lickport_joint_state', 10)
-        self._joint_target_subscription = self.create_subscription(
-            JointState,
-            'lickport_joint_target',
-            self._joint_target_callback,
-            10)
-        self._joint_target_subscription  # prevent unused variable warning
-        self._joints = {}
-        self._setup_joints()
+        # self._joint_target_subscription = self.create_subscription(
+        #     JointState,
+        #     'lickport_joint_target',
+        #     self._joint_target_callback,
+        #     10)
+        # self._joint_target_subscription  # prevent unused variable warning
 
-    def _setup_joints(self):
-        try:
-            try:
-                for name, parameters in self._JOINT_PARAMETERS.items():
-                    self._joints[name] = Joint(name, parameters, self.get_logger(), self._publish_joint_state)
-            except PhidgetException as e:
-                raise EndProgramSignal('Program Terminated: Open Failed')
+        self._attached_timer_period = 1
+        self._attached_timer = None
 
-        except PhidgetException as e:
-            DisplayError(e)
-            traceback.print_exc()
-            for name, joint in self._joints.items():
-                joint.close()
-            return 1
-        except EndProgramSignal as e:
-            self.get_logger().info(str(e))
-            for name, joint in self._joints.items():
-                joint.close()
-            raise EndProgramSignal(str(e))
+        self.lickport = Lickport(self.lickport_info, self.name, self.logger)
+        self.lickport.set_stepper_on_change_handlers_to_disabled()
+        self.lickport.set_stepper_on_stopped_handlers(self._homed_handler)
+        self.lickport.set_on_attach_handler(self._on_attach_handler)
+        self.logger.info('opening lickport phidgets...')
+        self.lickport.open()
 
-        for name, joint in self._joints.items():
-            joint.home()
+    def _on_attach_handler(self, handle):
+        self.lickport._on_attach_handler(handle)
+        if self._attached_timer is None:
+            self._attached_timer = self.create_timer(self._attached_timer_period, self._attached_timer_callback)
 
-    def _publish_joint_state(self, ch, position):
+    def _attached_timer_callback(self):
+        self._attached_timer.cancel()
+        self._attached_timer = None
+        if self.lickport.is_attached():
+            self.logger.info('lickport is attached!')
+            self.lickport.home_stepper_joints()
+
+    def _publish_joint_state_handler(self, handle, value):
+        if not self.lickport.all_stepper_joints_homed:
+            return
         joint_state = JointState()
         joint_state.header = Header()
         now_frac, now_whole = math.modf(time())
         joint_state.header.stamp.sec = int(now_whole)
         joint_state.header.stamp.nanosec = int(now_frac * 1e9)
-        for name, joint in self._joints.items():
+        for name, stepper_joint in self.lickport.stepper_joints.items():
             joint_state.name.append(name)
-            joint_state.position.append(joint.get_position())
-            joint_state.velocity.append(joint.get_velocity())
+            joint_state.position.append(stepper_joint.stepper.get_position())
+            joint_state.velocity.append(stepper_joint.stepper.get_velocity())
         self._joint_state_publisher.publish(joint_state)
 
-    def _joint_target_callback(self, msg):
-        if len(msg.name) == len(msg.velocity) == len(msg.position):
-            targets = zip(msg.name, msg.velocity, msg.position)
-            for name, velocity, position in targets:
-                try:
-                    self._joints[name].set_velocity_limit(velocity)
-                    self._joints[name].set_target_position(position)
-                except KeyError:
-                    pass
-        elif len(msg.name) == len(msg.position):
-            targets = zip(msg.name, msg.position)
-            for name, position in targets:
-                try:
-                    self._joints[name].set_target_position(position)
-                except KeyError:
-                    pass
+    def _homed_handler(self, handle):
+        for name, stepper_joint in self.lickport.stepper_joints.items():
+            if not stepper_joint.homed:
+                return
+        self.lickport.set_stepper_on_change_handlers(self._publish_joint_state_handler)
+        self.lickport.set_stepper_on_stopped_handlers_to_disabled()
+
+    # def _joint_target_callback(self, msg):
+    #     if len(msg.name) == len(msg.velocity) == len(msg.position):
+    #         targets = zip(msg.name, msg.velocity, msg.position)
+    #         for name, velocity, position in targets:
+    #             try:
+    #                 self._joints[name].set_velocity_limit(velocity)
+    #                 self._joints[name].set_target_position(position)
+    #             except KeyError:
+    #                 pass
+    #     elif len(msg.name) == len(msg.position):
+    #         targets = zip(msg.name, msg.position)
+    #         for name, position in targets:
+    #             try:
+    #                 self._joints[name].set_target_position(position)
+    #             except KeyError:
+    #                 pass
 
     def disable_all_joints(self):
         for name, joint in self._joints.items():
@@ -154,12 +120,11 @@ class Lickport(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    lickport = Lickport()
+    lickport_node = LickportNode()
 
-    rclpy.spin(lickport)
+    rclpy.spin(lickport_node)
 
-    lickport.disable_all_joints()
-    lickport.destroy_node()
+    lickport_node.destroy_node()
     rclpy.shutdown()
 
 
