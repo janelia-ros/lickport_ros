@@ -30,6 +30,7 @@ from rclpy.node import Node
 
 from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
+from joint_control_msgs.msg import JointTarget
 
 from .lickport import Lickport, LickportInfo
 
@@ -45,12 +46,12 @@ class LickportNode(Node):
         self.logger = self.get_logger()
 
         self._joint_state_publisher = self.create_publisher(JointState, 'lickport_joint_state', 10)
-        # self._joint_target_subscription = self.create_subscription(
-        #     JointState,
-        #     'lickport_joint_target',
-        #     self._joint_target_callback,
-        #     10)
-        # self._joint_target_subscription  # prevent unused variable warning
+        self._joint_target_subscription = self.create_subscription(
+            JointTarget,
+            'lickport_joint_target',
+            self._joint_target_callback,
+            10)
+        self._joint_target_subscription  # prevent unused variable warning
 
         self._attached_timer_period = 1
         self._attached_timer = None
@@ -94,28 +95,24 @@ class LickportNode(Node):
                 return
         self.lickport.set_stepper_on_change_handlers(self._publish_joint_state_handler)
         self.lickport.set_stepper_on_stopped_handlers_to_disabled()
+        self.logger.info('lickport is homed!')
 
-    # def _joint_target_callback(self, msg):
-    #     if len(msg.name) == len(msg.velocity) == len(msg.position):
-    #         targets = zip(msg.name, msg.velocity, msg.position)
-    #         for name, velocity, position in targets:
-    #             try:
-    #                 self._joints[name].set_velocity_limit(velocity)
-    #                 self._joints[name].set_target_position(position)
-    #             except KeyError:
-    #                 pass
-    #     elif len(msg.name) == len(msg.position):
-    #         targets = zip(msg.name, msg.position)
-    #         for name, position in targets:
-    #             try:
-    #                 self._joints[name].set_target_position(position)
-    #             except KeyError:
-    #                 pass
-
-    def disable_all_joints(self):
-        for name, joint in self._joints.items():
-            joint.disable()
-
+    def _joint_target_callback(self, msg):
+        if len(msg.name) == len(msg.velocity) == len(msg.position):
+            targets = zip(msg.name, msg.velocity, msg.position)
+            for name, velocity, position in targets:
+                try:
+                    self.lickport.stepper_joints[name].stepper.set_velocity_limit(velocity)
+                    self.lickport.stepper_joints[name].stepper.set_target_position(position)
+                except KeyError:
+                    pass
+        elif len(msg.name) == len(msg.position):
+            targets = zip(msg.name, msg.position)
+            for name, position in targets:
+                try:
+                    self.lickport.stepper_joints[name].stepper.set_target_position(position)
+                except KeyError:
+                    pass
 
 def main(args=None):
     rclpy.init(args=args)

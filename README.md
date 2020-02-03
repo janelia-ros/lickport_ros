@@ -9,7 +9,7 @@ Published Topics
 
 Subscribed Topics
 -----------------
-* `/lickport_joint_target` (`sensor_msgs/JointState`) - Set joint state targets.
+* `/lickport_joint_target` (`joint_control_msgs/JointTarget`) - Set joint state targets.
 
 Parameters
 ----------
@@ -21,5 +21,5 @@ Command Line Examples
 ```bash
 ros2 run lickport lickport
 ros2 topic echo /lickport_joint_state
-ros2 topic pub -1 /lickport_joint_target sensor_msgs/JointState "{name: [x,y,z], position: [1000,1000,1000]}"
+ros2 topic pub -1 /lickport_joint_target joint_control_msgs/JointTarget "{name: [x,y,z], position: [1000,1000,1000]}"
 ```
