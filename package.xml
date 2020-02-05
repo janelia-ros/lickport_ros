@@ -13,9 +13,7 @@
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>phidgets_python_interface</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>joint_control_msgs</exec_depend>
+  <exec_depend>smart_cage_msgs</exec_depend>
 
   <buildtool_depend>ament_python</buildtool_depend>
 

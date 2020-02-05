@@ -28,13 +28,12 @@
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import Header
-from sensor_msgs.msg import JointState
-from joint_control_msgs.msg import JointTarget
+from smart_cage_msgs.msg import LickportState, LickportTarget
 
 from .lickport import Lickport, LickportInfo
 
-from time import time
+import time
+import datetime
 import math
 
 class LickportNode(Node):
@@ -45,13 +44,13 @@ class LickportNode(Node):
         self.name = 'lickport'
         self.logger = self.get_logger()
 
-        self._joint_state_publisher = self.create_publisher(JointState, 'lickport_joint_state', 10)
-        self._joint_target_subscription = self.create_subscription(
+        self._lickport_state_publisher = self.create_publisher(LickportState, 'lickport_state', 10)
+        self._lickport_target_subscription = self.create_subscription(
             JointTarget,
-            'lickport_joint_target',
-            self._joint_target_callback,
+            'lickport_target',
+            self._lickport_target_callback,
             10)
-        self._joint_target_subscription  # prevent unused variable warning
+        self._lickport_target_subscription  # prevent unused variable warning
 
         self._attached_timer_period = 1
         self._attached_timer = None
@@ -75,29 +74,24 @@ class LickportNode(Node):
             self.logger.info('lickport is attached!')
             self.lickport.home_stepper_joints()
 
-    def _publish_joint_state_handler(self, handle, value):
+    def _publish_lickport_state_handler(self, handle, value):
         if not self.lickport.all_stepper_joints_homed:
             return
-        joint_state = JointState()
-        joint_state.header = Header()
-        now_frac, now_whole = math.modf(time())
-        joint_state.header.stamp.sec = int(now_whole)
-        joint_state.header.stamp.nanosec = int(now_frac * 1e9)
-        for name, stepper_joint in self.lickport.stepper_joints.items():
-            joint_state.name.append(name)
-            joint_state.position.append(stepper_joint.stepper.get_position())
-            joint_state.velocity.append(stepper_joint.stepper.get_velocity())
-        self._joint_state_publisher.publish(joint_state)
+        lickport_state = LickportState()
+        lickport_state.datetime = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        now_frac, now_whole = math.modf(time.time())
+        lickport_state.nanosec = int(now_frac * 1e9)
+        lickport_state.x_position = self.lickport.stepper_joints['x'].stepper.get_position()
+        self._lickport_state_publisher.publish(lickport_state)
 
     def _homed_handler(self, handle):
         for name, stepper_joint in self.lickport.stepper_joints.items():
             if not stepper_joint.homed:
                 return
-        self.lickport.set_stepper_on_change_handlers(self._publish_joint_state_handler)
-        self.lickport.set_stepper_on_stopped_handlers_to_disabled()
+        self.lickport.set_stepper_on_stopped_handlers(self._publish_lickport_state_handler)
         self.logger.info('lickport is homed!')
 
-    def _joint_target_callback(self, msg):
+    def _lickport_target_callback(self, msg):
         if len(msg.name) == len(msg.velocity) == len(msg.position):
             targets = zip(msg.name, msg.velocity, msg.position)
             for name, velocity, position in targets:
