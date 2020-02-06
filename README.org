@@ -10,23 +10,23 @@
   - Author :: Peter Polidoro
   - Email :: peterpolidoro@gmail.com
 
-** Description
+* Description
 
-   This is the ROS lickport interface.
+  This is the ROS lickport interface.
 
-** Published Topics
-   - `/lickport_joint_state` (`sensor_msgs/JointState`) - A joint state message containing the current state of all joints.
+* Published Topics
+  - `/lickport_state` (`smart_cage_msgs/LickportState`)
 
-** Subscribed Topics
-   - `/lickport_joint_target` (`joint_control_msgs/JointTarget`) - Set joint state targets.
+* Subscribed Topics
+  - `/lickport_target` (`smart_cage_msgs/LickportTarget`)
 
-** Parameters
-   - `serial` (int) - The serial number of the phidgets motor to connect to.  If -1 (the default), connects to any motor phidget that can be found.
+* Parameters
 
-** Command Line Examples
+* Command Line Examples
 
-   #+BEGIN_SRC sh
-     ros2 run lickport lickport
-     ros2 topic echo /lickport_joint_state
-     ros2 topic pub -1 /lickport_joint_target joint_control_msgs/JointTarget "{name: [x,y,z], position: [1000,1000,1000]}"
-   #+END_SRC
+  #+BEGIN_SRC sh
+    ros2 run lickport lickport
+    ros2 topic echo /lickport_state
+    ros2 topic pub -1 /lickport_target smart_cage_msgs/LickportTarget "{x: 1000, y: 1000, z: 1000}"
+  #+END_SRC
+p

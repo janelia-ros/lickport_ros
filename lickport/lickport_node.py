@@ -46,7 +46,7 @@ class LickportNode(Node):
 
         self._lickport_state_publisher = self.create_publisher(LickportState, 'lickport_state', 10)
         self._lickport_target_subscription = self.create_subscription(
-            JointTarget,
+            LickportTarget,
             'lickport_target',
             self._lickport_target_callback,
             10)
@@ -56,8 +56,6 @@ class LickportNode(Node):
         self._attached_timer = None
 
         self.lickport = Lickport(self.lickport_info, self.name, self.logger)
-        self.lickport.set_stepper_on_change_handlers_to_disabled()
-        self.lickport.set_stepper_on_stopped_handlers(self._homed_handler)
         self.lickport.set_on_attach_handler(self._on_attach_handler)
         self.logger.info('opening lickport phidgets...')
         self.lickport.open()
@@ -72,6 +70,8 @@ class LickportNode(Node):
         self._attached_timer = None
         if self.lickport.is_attached():
             self.logger.info('lickport is attached!')
+            self.lickport.set_stepper_on_change_handlers_to_disabled()
+            self.lickport.set_stepper_on_homed_handlers(self._homed_handler)
             self.lickport.home_stepper_joints()
 
     def _publish_lickport_state_handler(self, handle, value):
@@ -81,32 +81,22 @@ class LickportNode(Node):
         lickport_state.datetime = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         now_frac, now_whole = math.modf(time.time())
         lickport_state.nanosec = int(now_frac * 1e9)
-        lickport_state.x_position = self.lickport.stepper_joints['x'].stepper.get_position()
+        lickport_state.x = self.lickport.stepper_joints['x'].stepper.get_position()
+        lickport_state.y = self.lickport.stepper_joints['y'].stepper.get_position()
+        lickport_state.z = self.lickport.stepper_joints['z'].stepper.get_position()
         self._lickport_state_publisher.publish(lickport_state)
 
     def _homed_handler(self, handle):
         for name, stepper_joint in self.lickport.stepper_joints.items():
             if not stepper_joint.homed:
                 return
-        self.lickport.set_stepper_on_stopped_handlers(self._publish_lickport_state_handler)
+        self.lickport.set_stepper_on_change_handlers(self._publish_lickport_state_handler)
         self.logger.info('lickport is homed!')
 
     def _lickport_target_callback(self, msg):
-        if len(msg.name) == len(msg.velocity) == len(msg.position):
-            targets = zip(msg.name, msg.velocity, msg.position)
-            for name, velocity, position in targets:
-                try:
-                    self.lickport.stepper_joints[name].stepper.set_velocity_limit(velocity)
-                    self.lickport.stepper_joints[name].stepper.set_target_position(position)
-                except KeyError:
-                    pass
-        elif len(msg.name) == len(msg.position):
-            targets = zip(msg.name, msg.position)
-            for name, position in targets:
-                try:
-                    self.lickport.stepper_joints[name].stepper.set_target_position(position)
-                except KeyError:
-                    pass
+        self.lickport.stepper_joints['x'].stepper.set_target_position(msg.x)
+        self.lickport.stepper_joints['y'].stepper.set_target_position(msg.y)
+        self.lickport.stepper_joints['z'].stepper.set_target_position(msg.z)
 
 def main(args=None):
     rclpy.init(args=args)

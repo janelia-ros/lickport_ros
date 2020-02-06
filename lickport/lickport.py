@@ -105,6 +105,10 @@ class Lickport():
         for name, stepper_joint in self.stepper_joints.items():
             stepper_joint.stepper.set_on_stopped_handler(None)
 
+    def set_stepper_on_homed_handlers(self, on_homed_handler):
+        for name, stepper_joint in self.stepper_joints.items():
+            stepper_joint.set_on_homed_handler(on_homed_handler)
+
     def home_stepper_joints(self):
         for name, stepper_joint in self.stepper_joints.items():
             stepper_joint.home()
