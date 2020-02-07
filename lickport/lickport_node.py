@@ -44,14 +44,6 @@ class LickportNode(Node):
         self.name = 'lickport'
         self.logger = self.get_logger()
 
-        self._lickport_state_publisher = self.create_publisher(LickportState, 'lickport_state', 10)
-        self._lickport_target_subscription = self.create_subscription(
-            LickportTarget,
-            'lickport_target',
-            self._lickport_target_callback,
-            10)
-        self._lickport_target_subscription  # prevent unused variable warning
-
         self._attached_timer_period = 1
         self._attached_timer = None
 
@@ -60,6 +52,13 @@ class LickportNode(Node):
         self.logger.info('opening lickport phidgets...')
         self.lickport.open()
 
+        self._lickport_state_publisher = self.create_publisher(LickportState, 'lickport_state')
+        self._lickport_target_subscription = self.create_subscription(
+            LickportTarget,
+            'lickport_target',
+            self._lickport_target_callback)
+        self._lickport_target_subscription  # prevent unused variable warning
+
     def _on_attach_handler(self, handle):
         self.lickport._on_attach_handler(handle)
         if self._attached_timer is None:
@@ -67,6 +66,7 @@ class LickportNode(Node):
 
     def _attached_timer_callback(self):
         self._attached_timer.cancel()
+        self.destroy_timer(self._attached_timer)
         self._attached_timer = None
         if self.lickport.is_attached():
             self.logger.info('lickport is attached!')
