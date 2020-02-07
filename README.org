@@ -18,7 +18,7 @@
   - `/lickport_state` (`smart_cage_msgs/LickportState`)
 
 * Subscribed Topics
-  - `/lickport_target` (`smart_cage_msgs/LickportTarget`)
+  - `/lickport_control` (`smart_cage_msgs/LickportControl`)
 
 * Parameters
 
@@ -27,6 +27,6 @@
   #+BEGIN_SRC sh
     ros2 run lickport lickport
     ros2 topic echo /lickport_state
-    ros2 topic pub -1 /lickport_target smart_cage_msgs/LickportTarget "{x: 1000, y: 1000, z: 1000}"
+    ros2 topic pub -1 /lickport_control smart_cage_msgs/LickportControl "{x: 1000, y: 1000, z: 1000}"
   #+END_SRC
 p

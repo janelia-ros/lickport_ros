@@ -28,7 +28,7 @@
 import rclpy
 from rclpy.node import Node
 
-from smart_cage_msgs.msg import LickportState, LickportTarget
+from smart_cage_msgs.msg import LickportState, LickportControl
 
 from .lickport import Lickport, LickportInfo
 
@@ -53,11 +53,11 @@ class LickportNode(Node):
         self.lickport.open()
 
         self._lickport_state_publisher = self.create_publisher(LickportState, 'lickport_state')
-        self._lickport_target_subscription = self.create_subscription(
-            LickportTarget,
-            'lickport_target',
-            self._lickport_target_callback)
-        self._lickport_target_subscription  # prevent unused variable warning
+        self._lickport_control_subscription = self.create_subscription(
+            LickportControl,
+            'lickport_control',
+            self._lickport_control_callback)
+        self._lickport_control_subscription  # prevent unused variable warning
 
     def _on_attach_handler(self, handle):
         self.lickport._on_attach_handler(handle)
@@ -93,10 +93,10 @@ class LickportNode(Node):
         self.lickport.set_stepper_on_change_handlers(self._publish_lickport_state_handler)
         self.logger.info('lickport is homed!')
 
-    def _lickport_target_callback(self, msg):
-        self.lickport.stepper_joints['x'].stepper.set_target_position(msg.x)
-        self.lickport.stepper_joints['y'].stepper.set_target_position(msg.y)
-        self.lickport.stepper_joints['z'].stepper.set_target_position(msg.z)
+    def _lickport_control_callback(self, msg):
+        self.lickport.stepper_joints['x'].stepper.set_control_position(msg.x)
+        self.lickport.stepper_joints['y'].stepper.set_control_position(msg.y)
+        self.lickport.stepper_joints['z'].stepper.set_control_position(msg.z)
 
 def main(args=None):
     rclpy.init(args=args)
