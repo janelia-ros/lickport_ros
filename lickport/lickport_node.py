@@ -103,7 +103,10 @@ def main(args=None):
 
     lickport_node = LickportNode()
 
-    rclpy.spin(lickport_node)
+    try:
+        rclpy.spin(lickport_node)
+    except KeyboardInterrupt:
+        pass
 
     lickport_node.destroy_node()
     rclpy.shutdown()
