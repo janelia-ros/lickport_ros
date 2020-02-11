@@ -78,7 +78,7 @@ class LickportNode(Node):
         if not self.lickport.all_stepper_joints_homed:
             return
         lickport_state = LickportState()
-        lickport_state.datetime = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        lickport_state.datetime = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         now_frac, now_whole = math.modf(time.time())
         lickport_state.nanosec = int(now_frac * 1e9)
         lickport_state.x = self.lickport.stepper_joints['x'].stepper.get_position()
