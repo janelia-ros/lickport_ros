@@ -47,7 +47,7 @@ class LickportNode(Node):
         self._attached_timer_period = 1
         self._attached_timer = None
 
-        self.lickport = Lickport(self.lickport_info, self.name, self.logger)
+        self.lickport = Lickport(self.name, self.logger, self.lickport_info)
         self.lickport.set_on_attach_handler(self._on_attach_handler)
         self.logger.info('opening lickport phidgets...')
         self.lickport.open()
@@ -94,9 +94,9 @@ class LickportNode(Node):
         self.logger.info('lickport is homed!')
 
     def _lickport_control_callback(self, msg):
-        self.lickport.stepper_joints['x'].stepper.set_control_position(msg.x)
-        self.lickport.stepper_joints['y'].stepper.set_control_position(msg.y)
-        self.lickport.stepper_joints['z'].stepper.set_control_position(msg.z)
+        self.lickport.stepper_joints['x'].stepper.set_target_position(msg.x)
+        self.lickport.stepper_joints['y'].stepper.set_target_position(msg.y)
+        self.lickport.stepper_joints['z'].stepper.set_target_position(msg.z)
 
 def main(args=None):
     rclpy.init(args=args)

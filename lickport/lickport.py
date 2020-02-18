@@ -25,6 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from phidgets_python_api.phidget import PhidgetComposite
 from phidgets_python_api.stepper_joint import StepperJoint, StepperJointInfo
 
 class LickportInfo():
@@ -54,38 +55,17 @@ class LickportInfo():
         self.stepper_joints_info['z'].home_switch_info.phidget_info.label = 'lickport_0'
         self.stepper_joints_info['z'].home_switch_info.active_low = False
 
-class Lickport():
-    def __init__(self, lickport_info, name, logger):
+class Lickport(PhidgetComposite):
+    def __init__(self, name, logger, lickport_info):
+        super().__init__(name, logger)
         self.lickport_info = lickport_info
-        self.name = name
-        self.logger = logger
 
         self.stepper_joints = {}
         for name, info in self.lickport_info.stepper_joints_info.items():
-            self.stepper_joints[name] = StepperJoint(info, self.name + '_' + name + "_stepper_joint", self.logger)
-
-    def open(self):
-        for name, stepper_joint in self.stepper_joints.items():
-            stepper_joint.open()
-
-    def close(self):
-        for name, stepper_joint in self.stepper_joints.items():
-            stepper_joint.close()
-
-    def set_on_attach_handler(self, on_attach_handler):
-        for name, stepper_joint in self.stepper_joints.items():
-            stepper_joint.set_on_attach_handler(on_attach_handler)
-
-    def _on_attach_handler(self, handle):
-        for name, stepper_joint in self.stepper_joints.items():
-            if stepper_joint.has_handle(handle):
-                stepper_joint._on_attach_handler(handle)
-
-    def is_attached(self):
-        for name, stepper_joint in self.stepper_joints.items():
-            if not stepper_joint.is_attached():
-                return False
-        return True
+            stepper_joint_name = self.name + '_' + name + "_stepper_joint"
+            stepper_joint = StepperJoint(stepper_joint_name, self.logger, info)
+            self.add(stepper_joint)
+            self.stepper_joints[name] = stepper_joint
 
     def set_stepper_on_change_handlers(self, stepper_on_change_handler):
         for name, stepper_joint in self.stepper_joints.items():
